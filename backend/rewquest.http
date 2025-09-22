@@ -1,0 +1,2 @@
+curl -X POST localhost:11434/api/generate \
+  -d '{"model":"llama3","prompt":"Your JSON only prompt here","stream":false}'
