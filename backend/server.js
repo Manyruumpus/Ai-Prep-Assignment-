@@ -1,24 +1,30 @@
-/*
- * backend/server.js
- */
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 5000;
-// This line now imports your new Ollama-based llm.js
 const generateLLMAnswer = require("./llm"); 
 
 app.use(cors());
 app.use(express.json());
 
-// In-memory demo storage
 let questions = [];
 let answers = {};
 let nextQuestionId = 1;
 let nextAnswerId = 1;
 
-// --- SSE /api/stream endpoint ---
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const errorVisualization = {
+  id: "vis_err",
+  duration: 2000,
+  fps: 30,
+  layers: [
+    { id: "error", type: "circle", props: { x: 250, y: 200, r: 50, fill: "#e74c3c" } },
+    { type: "text", props: { text: "Timeout", x: 250, y: 200, align: "center", baseline: "middle", font: "bold 24px system-ui", fill: "white" } }
+  ]
+};
+
 const clients = [];
 app.get('/api/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -26,7 +32,6 @@ app.get('/api/stream', (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  // Heartbeat to keep connection alive
   const keepAliveId = setInterval(() => {
     res.write(': heartbeat\n\n');
   }, 15000);
@@ -48,7 +53,7 @@ function broadcastEvent(eventName, data) {
 }
 
 // --- POST /api/questions: Demo answers + LLM fallback ---
-app.post('/api/questions', (req, res) => {
+app.post('/api/questions', async (req, res) => {
   const { userId, question } = req.body;
   if (!userId || !question) {
     return res.status(400).json({ error: 'userId and question required' });
@@ -69,12 +74,10 @@ app.post('/api/questions', (req, res) => {
     question: questions[questions.length - 1]
   });
 
-  // Check for demo questions
   const qText = question.toLowerCase();
   let explanation, visualization;
   let isDemo = true; // Flag to track if this is a demo
 
-  // Demo 1: Newton's First Law
   if (
     (qText.includes("newton") && qText.includes("first law")) ||
     (qText.includes("motion") && qText.includes("first law")) ||
@@ -101,18 +104,17 @@ app.post('/api/questions', (req, res) => {
           ]
         },
         {
-            type: "text",
-            props: { text: "No Force = Constant Motion", x: 250, y: 100, align: "center", opacity: 0, font: "18px system-ui" },
-            animations: [
-                { property: "opacity", from: 0, to: 1, start: 500, end: 1000 },
-                { property: "opacity", from: 1, to: 0, start: 2500, end: 3000 }
-            ]
+          type: "text",
+          props: { text: "No Force = Constant Motion", x: 250, y: 100, align: "center", opacity: 0, font: "18px system-ui" },
+          animations: [
+            { property: "opacity", from: 0, to: 1, start: 500, end: 1000 },
+            { property: "opacity", from: 1, to: 0, start: 2500, end: 3000 }
+          ]
         }
       ]
     };
 
   }
-  // Demo 2: Newton's Second Law (F=ma) - ADDED
   else if (
     (qText.includes("newton") && qText.includes("second law")) ||
     (qText.includes("motion") && qText.includes("second law")) ||
@@ -132,66 +134,65 @@ app.post('/api/questions', (req, res) => {
             x: 250, y: 30, align: "center", font: "bold 20px system-ui", fill: "#333"
           }
         },
-        { // Object 1 (Heavy)
+        { 
           type: "rect",
           props: { x: 50, y: 150, w: 50, h: 50, fill: "linear-gradient(#2c3e50, #34495e)", borderRadius: 5, stroke: "#bdc3c7", lineWidth: 2 },
           animations: [
             { property: "x", from: 50, to: 200, start: 1000, end: 3000 } // Slower acceleration
           ]
         },
-        { // Text for Object 1
-            type: "text",
-            props: { text: "Mass: 2kg", x: 75, y: 125, align: "center", font: "14px system-ui", fill: "#333" }
+        { 
+          type: "text",
+          props: { text: "Mass: 2kg", x: 75, y: 125, align: "center", font: "14px system-ui", fill: "#333" }
         },
-        { // Arrow for Object 1
-            type: "arrow",
-            props: { x: 50, y: 175, dx: 0, dy: 0, color: "#e74c3c", lineWidth: 5, opacity: 0 },
-            animations: [
-                { property: "dx", from: 0, to: 50, start: 1000, end: 1100 },
-                { property: "opacity", from: 0, to: 1, start: 900, end: 1100 },
-                { property: "opacity", from: 1, to: 0, start: 2900, end: 3000 }
-            ]
+        { 
+          type: "arrow",
+          props: { x: 50, y: 175, dx: 0, dy: 0, color: "#e74c3c", lineWidth: 5, opacity: 0 },
+          animations: [
+            { property: "dx", from: 0, to: 50, start: 1000, end: 1100 },
+            { property: "opacity", from: 0, to: 1, start: 900, end: 1100 },
+            { property: "opacity", from: 1, to: 0, start: 2900, end: 3000 }
+          ]
         },
 
-        { // Object 2 (Light)
+        { 
           type: "rect",
           props: { x: 50, y: 280, w: 30, h: 30, fill: "linear-gradient(#f39c12, #e67e22)", borderRadius: 3, stroke: "#f1c40f", lineWidth: 2 },
           animations: [
             { property: "x", from: 50, to: 400, start: 1000, end: 3000 } // Faster acceleration
           ]
         },
-        { // Text for Object 2
-            type: "text",
-            props: { text: "Mass: 1kg", x: 65, y: 260, align: "center", font: "14px system-ui", fill: "#333" }
+        { 
+          type: "text",
+          props: { text: "Mass: 1kg", x: 65, y: 260, align: "center", font: "14px system-ui", fill: "#333" }
         },
-        { // Arrow for Object 2
-            type: "arrow",
-            props: { x: 50, y: 295, dx: 0, dy: 0, color: "#e74c3c", lineWidth: 5, opacity: 0 },
-            animations: [
-                { property: "dx", from: 0, to: 50, start: 1000, end: 1100 },
-                { property: "opacity", from: 0, to: 1, start: 900, end: 1100 },
-                { property: "opacity", from: 1, to: 0, start: 2900, end: 3000 }
-            ]
+        { 
+          type: "arrow",
+          props: { x: 50, y: 295, dx: 0, dy: 0, color: "#e74c3c", lineWidth: 5, opacity: 0 },
+          animations: [
+            { property: "dx", from: 0, to: 50, start: 1000, end: 1100 },
+            { property: "opacity", from: 0, to: 1, start: 900, end: 1100 },
+            { property: "opacity", from: 1, to: 0, start: 2900, end: 3000 }
+          ]
         },
-        { // Force text
-            type: "text",
-            props: { text: "Constant Force", x: 250, y: 70, align: "center", font: "16px system-ui", fill: "#e74c3c", opacity: 0 },
-            animations: [
-                { property: "opacity", from: 0, to: 1, start: 500, end: 1000 },
-                { property: "opacity", from: 1, to: 0, start: 3000, end: 3500 }
-            ]
+        { 
+          type: "text",
+          props: { text: "Constant Force", x: 250, y: 70, align: "center", font: "16px system-ui", fill: "#e74c3c", opacity: 0 },
+          animations: [
+            { property: "opacity", from: 0, to: 1, start: 500, end: 1000 },
+            { property: "opacity", from: 1, to: 0, start: 3000, end: 3500 }
+          ]
         },
-        { // Equation text
-            type: "text",
-            props: { text: "F = ma", x: 250, y: 350, align: "center", font: "bold 28px serif", fill: "#2980b9", opacity: 0 },
-            animations: [
-                { property: "opacity", from: 0, to: 1, start: 3500, end: 4000 }
-            ]
+        { 
+          type: "text",
+          props: { text: "F = ma", x: 250, y: 350, align: "center", font: "bold 28px serif", fill: "#2980b9", opacity: 0 },
+          animations: [
+            { property: "opacity", from: 0, to: 1, start: 3500, end: 4000 }
+          ]
         }
       ]
     };
   }
-  // Demo 3: Newton's Third Law (Action-Reaction)
   else if (
     (qText.includes("newton") && qText.includes("third law")) ||
     (qText.includes("motion") && qText.includes("third law")) ||
@@ -226,45 +227,44 @@ app.post('/api/questions', (req, res) => {
           ]
         },
         { // Arrow for Action
-            type: "arrow",
-            props: { x: 150, y: 220, dx: 0, dy: 50, color: "#e74c3c", opacity: 0 },
-            animations: [
-                { property: "opacity", from: 0, to: 1, start: 400, end: 500 },
-                { property: "opacity", from: 1, to: 0, start: 500, end: 600 },
-                { property: "opacity", from: 0, to: 1, start: 2400, end: 2500 },
-                { property: "opacity", from: 1, to: 0, start: 2500, end: 2600 }
-            ]
+          type: "arrow",
+          props: { x: 150, y: 220, dx: 0, dy: 50, color: "#e74c3c", opacity: 0 },
+          animations: [
+            { property: "opacity", from: 0, to: 1, start: 400, end: 500 },
+            { property: "opacity", from: 1, to: 0, start: 500, end: 600 },
+            { property: "opacity", from: 0, to: 1, start: 2400, end: 2500 },
+            { property: "opacity", from: 1, to: 0, start: 2500, end: 2600 }
+          ]
         },
         { // Arrow for Reaction
-            type: "arrow",
-            props: { x: 150, y: 280, dx: 0, dy: -50, color: "#2980b9", opacity: 0 },
-            animations: [
-                { property: "opacity", from: 0, to: 1, start: 400, end: 500 },
-                { property: "opacity", from: 1, to: 0, start: 500, end: 600 },
-                { property: "opacity", from: 0, to: 1, start: 2400, end: 2500 },
-                { property: "opacity", from: 1, to: 0, start: 2500, end: 2600 }
-            ]
+          type: "arrow",
+          props: { x: 150, y: 280, dx: 0, dy: -50, color: "#2980b9", opacity: 0 },
+          animations: [
+            { property: "opacity", from: 0, to: 1, start: 400, end: 500 },
+            { property: "opacity", from: 1, to: 0, start: 500, end: 600 },
+            { property: "opacity", from: 0, to: 1, start: 2400, end: 2500 },
+            { property: "opacity", from: 1, to: 0, start: 2500, end: 2600 }
+          ]
         },
         { // Text for action
-            type: "text",
-            props: { text: "Action", x: 180, y: 240, font: "16px system-ui", fill: "#e74c3c", opacity: 0 },
-            animations: [
-                { property: "opacity", from: 0, to: 1, start: 400, end: 500 },
-                { property: "opacity", from: 1, to: 0, start: 500, end: 600 }
-            ]
+          type: "text",
+          props: { text: "Action", x: 180, y: 240, font: "16px system-ui", fill: "#e74c3c", opacity: 0 },
+          animations: [
+            { property: "opacity", from: 0, to: 1, start: 400, end: 500 },
+            { property: "opacity", from: 1, to: 0, start: 500, end: 600 }
+          ]
         },
         { // Text for reaction
-            type: "text",
-            props: { text: "Reaction", x: 180, y: 260, font: "16px system-ui", fill: "#2980b9", opacity: 0 },
-            animations: [
-                { property: "opacity", from: 0, to: 1, start: 400, end: 500 },
-                { property: "opacity", from: 1, to: 0, start: 500, end: 600 }
-            ]
+          type: "text",
+          props: { text: "Reaction", x: 180, y: 260, font: "16px system-ui", fill: "#2980b9", opacity: 0 },
+          animations: [
+            { property: "opacity", from: 0, to: 1, start: 400, end: 500 },
+            { property: "opacity", from: 1, to: 0, start: 500, end: 600 }
+          ]
         }
       ]
     };
   }
-  // Demo 4: Photosynthesis
   else if (qText.includes("photosynthesis")) {
     explanation = "Photosynthesis is the process by which green plants use sunlight to synthesize food from carbon dioxide and water.";
     visualization = {
@@ -358,7 +358,6 @@ app.post('/api/questions', (req, res) => {
       ],
     };
   }
-  // Demo 5: Solar System
   else if (qText.includes("solar system")) {
     explanation = "The Solar System consists of the Sun at the center with planets orbiting around it due to gravitational pull.";
     visualization = {
@@ -450,7 +449,6 @@ app.post('/api/questions', (req, res) => {
       ],
     };
   }
-  // Demo 6: DFA in TOC
   else if (
     (qText.includes("dfa") && qText.includes("toc")) ||
     (qText.includes("deterministic finite automaton")) ||
@@ -469,40 +467,40 @@ app.post('/api/questions', (req, res) => {
             x: 250, y: 30, align: "center", font: "bold 20px system-ui", fill: "#333"
           }
         },
-        // States (Circles)
         { id: "q0_node", type: "circle", props: { x: 100, y: 200, r: 25, fill: "#3498db", stroke: "#2980b9", lineWidth: 3 } },
         { id: "q1_node", type: "circle", props: { x: 250, y: 200, r: 25, fill: "#e67e22", stroke: "#d35400", lineWidth: 3 } },
         { id: "q2_node", type: "circle", props: { x: 400, y: 200, r: 25, fill: "#27ae60", stroke: "#219f56", lineWidth: 3 } }, // Final state (double circle implicit via styling)
 
-        // State Labels
         { type: "text", props: { text: "q0", x: 100, y: 200, align: "center", baseline: "middle", font: "bold 18px monospace", fill: "white" } },
         { type: "text", props: { text: "q1", x: 250, y: 200, align: "center", baseline: "middle", font: "bold 18px monospace", fill: "white" } },
         { type: "text", props: { text: "q2 (Accept)", x: 400, y: 200, align: "center", baseline: "middle", font: "bold 18px monospace", fill: "white" } },
 
-        // Transitions (Arrows)
         { // q0 -> q1 on 'a'
           type: "arrow",
           props: { x: 125, y: 200, dx: 100, dy: 0, color: "#9b59b6", lineWidth: 4, opacity: 1 },
-          animations: [ { property: "opacity", from: 0, to: 1, start: 500, end: 700 } ]
+          animations: [{ property: "opacity", from: 0, to: 1, start: 500, end: 700 }]
         },
-        { type: "text", props: { text: "a", x: 175, y: 175, align: "center", font: "16px monospace", fill: "#9b59b6", opacity: 0 },
-          animations: [ { property: "opacity", from: 0, to: 1, start: 500, end: 700 } ]
+        {
+          type: "text", props: { text: "a", x: 175, y: 175, align: "center", font: "16px monospace", fill: "#9b59b6", opacity: 0 },
+          animations: [{ property: "opacity", from: 0, to: 1, start: 500, end: 700 }]
         },
         { // q1 -> q2 on 'b'
           type: "arrow",
           props: { x: 275, y: 200, dx: 100, dy: 0, color: "#34495e", lineWidth: 4, opacity: 1 },
-          animations: [ { property: "opacity", from: 0, to: 1, start: 1500, end: 1700 } ]
+          animations: [{ property: "opacity", from: 0, to: 1, start: 1500, end: 1700 }]
         },
-        { type: "text", props: { text: "b", x: 325, y: 175, align: "center", font: "16px monospace", fill: "#34495e", opacity: 0 },
-          animations: [ { property: "opacity", from: 0, to: 1, start: 1500, end: 1700 } ]
+        {
+          type: "text", props: { text: "b", x: 325, y: 175, align: "center", font: "16px monospace", fill: "#34495e", opacity: 0 },
+          animations: [{ property: "opacity", from: 0, to: 1, start: 1500, end: 1700 }]
         },
         { // q1 -> q0 on 'a' (loop back)
           type: "arrow",
           props: { x: 250, y: 175, dx: -100, dy: 0, color: "#f1c40f", lineWidth: 4, opacity: 1 },
-          animations: [ { property: "opacity", from: 0, to: 1, start: 2500, end: 2700 } ]
+          animations: [{ property: "opacity", from: 0, to: 1, start: 2500, end: 2700 }]
         },
-        { type: "text", props: { text: "a", x: 200, y: 150, align: "center", font: "16px monospace", fill: "#f1c40f", opacity: 0 },
-          animations: [ { property: "opacity", from: 0, to: 1, start: 2500, end: 2700 } ]
+        {
+          type: "text", props: { text: "a", x: 200, y: 150, align: "center", font: "16px monospace", fill: "#f1c40f", opacity: 0 },
+          animations: [{ property: "opacity", from: 0, to: 1, start: 2500, end: 2700 }]
         },
         // Input string animation
         {
@@ -524,11 +522,11 @@ app.post('/api/questions', (req, res) => {
           ]
         },
         {
-            type: "text",
-            props: { text: "Accept!", x: 250, y: 300, align: "center", font: "bold 24px system-ui", fill: "#27ae60", opacity: 0 },
-            animations: [
-                { property: "opacity", from: 0, to: 1, start: 6000, end: 6500 }
-            ]
+          type: "text",
+          props: { text: "Accept!", x: 250, y: 300, align: "center", font: "bold 24px system-ui", fill: "#27ae60", opacity: 0 },
+          animations: [
+            { property: "opacity", from: 0, to: 1, start: 6000, end: 6500 }
+          ]
         }
       ]
     };
@@ -537,13 +535,9 @@ app.post('/api/questions', (req, res) => {
     isDemo = false;
   }
 
-  // --- --- --- --- --- --- --- --- --- --- --- ---
-  // --- *** MODIFICATION FOR DELAY *** ---
-  // --- --- --- --- --- --- --- --- --- --- --- ---
   if (isDemo) {
     console.log(`Demo question identified. Delaying answer for 20 seconds...`);
     
-    // This setTimeout wraps the demo answer logic
     setTimeout(() => {
       console.log(`Sending demo answer for ${aid}`);
       const mockAnswer = {
@@ -553,45 +547,29 @@ app.post('/api/questions', (req, res) => {
       };
       answers[aid] = mockAnswer;
       broadcastEvent('answer_created', { answer: mockAnswer });
-      res.json({ questionId: qid, answerId: aid });
     }, 20000); // 20,000 milliseconds = 20 seconds
 
-  // ELSE, call the LLM (which is now Ollama)
-  } else {
-    console.log("Not a demo question. Calling LLM...");
-    generateLLMAnswer(question).then(llmData => {
-      const llmAnswer = {
-        id: aid,
-        text: llmData.text,
-        visualization: llmData.visualization
-      };
-      answers[aid] = llmAnswer;
-      broadcastEvent('answer_created', { answer: llmAnswer });
-      res.json({ questionId: qid, answerId: aid });
+    return res.json({ questionId: qid, answerId: aid });
 
-    }).catch(err => {
-      // Fallback in case of LLM error
-      const errAnswer = {
+  } else {
+    res.json({ questionId: qid, answerId: aid });
+
+    console.log("Simulating long LLM call (2 minutes)...");
+    
+    await sleep(120000); 
+
+    console.log("LLM simulation timed out.");
+    const timeoutAnswer = {
         id: aid,
-        text: "Ollama error: " + (err.message || "Unknown error"),
-        visualization: {
-          id: "vis_err",
-          duration: 2000,
-          fps: 30,
-          layers: [
-            { id: "error", type: "circle", props: { x: 250, y: 200, r: 50, fill: "#e74c3c" } },
-            { type: "text", props: { text: "Error!", x: 250, y: 200, align: "center", baseline: "middle", font: "bold 24px system-ui", fill: "white" } }
-          ]
-        }
-      };
-      answers[aid] = errAnswer;
-      broadcastEvent('answer_created', { answer: errAnswer });
-      res.json({ questionId: qid, answerId: aid });
-    });
+        text: "Request timed out. The LLM is not connected.",
+        visualization: errorVisualization
+    };
+
+    answers[aid] = timeoutAnswer;
+    broadcastEvent('answer_created', { answer: timeoutAnswer });
   }
 });
 
-// --- GET endpoints ---
 app.get('/api/questions', (req, res) => {
   res.json(questions);
 });

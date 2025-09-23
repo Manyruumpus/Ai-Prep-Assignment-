@@ -1,14 +1,12 @@
 /*
  * backend/llm.js
- * (This is the correct version for OLLAMA)
+ * (This version is updated to use the /api/chat endpoint)
  */
 const axios = require("axios");
 
-// This URL must point to your Ollama service.
-// When we use docker-compose, the service name will be 'ollama',
-// so we use 'http://ollama:11434'
-const OLLAMA_API_URL = process.env.OLLAMA_API_URL || "http://ollama:11434/api/generate";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3";
+// This URL will be loaded from your .env file
+const OLLAMA_API_URL = process.env.OLLAMA_API_URL || "http://ollama:11434/api/chat";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "phi3:mini";
 
 /**
  * Extracts and cleans the first valid JSON object from a raw string.
@@ -20,10 +18,7 @@ function extractJSON(str) {
   const jsonMatch = str.match(/```json([\s\S]*?)```|(\{[\s\S]*\})/);
   if (!jsonMatch) return null;
   
-  // Get the content from either the markdown block (group 1) or the raw object (group 2)
   let jsonStr = jsonMatch[1] || jsonMatch[2];
-  
-  // Clean up any common LLM artifacts
   return jsonStr.replace(/\\n/g, "").replace(/\u00A0/g, ' ').trim();
 }
 
@@ -47,13 +42,15 @@ async function generateLLMAnswer(question) {
       Animation: A blue circle moves from the left and collides with a red circle. Upon impact, the blue circle recoils to the left, and the red circle is pushed to the right.
     `;
 
+    // --- MODIFIED TO USE /api/chat FORMAT ---
     const brainstormingResponse = await axios.post(OLLAMA_API_URL, {
       model: OLLAMA_MODEL,
-      prompt: brainstormingPrompt,
+      messages: [{ role: "user", content: brainstormingPrompt }], // Use 'messages' array
       stream: false,
     });
     
-    const conceptualDescription = brainstormingResponse.data.response;
+    // The response is in a different place for /api/chat
+    const conceptualDescription = brainstormingResponse.data.message.content;
 
     // --- Step 2: Convert the concept into a specific JSON format ---
     const generationPrompt = `
@@ -75,7 +72,7 @@ async function generateLLMAnswer(question) {
           "layers": [
             {
               "id": "shape1",
-              "type": "circle", /* or "rect", "arrow", "text" */
+              "type": "circle",
               "props": { "x": 100, "y": 200, "r": 30, "fill": "#3498db" },
               "animations": [
                 { "property": "x", "from": 100, "to": 250, "start": 0, "end": 2000 }
@@ -86,29 +83,27 @@ async function generateLLMAnswer(question) {
       }
     `;
 
+    // --- MODIFIED TO USE /api/chat FORMAT ---
     const finalResponse = await axios.post(OLLAMA_API_URL, {
       model: OLLAMA_MODEL,
-      prompt: generationPrompt,
+      messages: [{ role: "user", content: generationPrompt }], // Use 'messages' array
       stream: false,
-      format: "json", // Enforce JSON output for the final step
+      format: "json", 
     });
 
-    // Handle both stringified JSON and raw JSON object response
-    let jsonStr;
-    if (typeof finalResponse.data.response === 'string') {
-        jsonStr = extractJSON(finalResponse.data.response);
-    } else if (typeof finalResponse.data.response === 'object') {
-        jsonStr = JSON.stringify(finalResponse.data.response);
-    }
+    // The response is in a different place for /api/chat
+    // and 'format=json' means it's an object, not a string
+    let jsonStr = finalResponse.data.message.content;
 
     if (!jsonStr) {
-      throw new Error("No JSON found in the final LLM output.");
+      throw new Error("No JSON string found in the final LLM output.");
     }
 
-    return JSON.parse(jsonStr);
+    // We still run extractJSON in case the model *still* wraps it in markdown
+    return JSON.parse(extractJSON(jsonStr));
 
   } catch (e) {
-    console.error("Ollama Error creating dynamic visualization:", e.message);
+    console.error("Ollama Error creating dynamic visualization:", e.message, e.response ? e.response.data : '');
     // Fallback in case of an error
     return {
       text: "Error generating dynamic visualization. Using fallback.",
