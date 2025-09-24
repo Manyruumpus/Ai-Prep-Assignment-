@@ -1,9 +1,7 @@
 // frontend/src/QuestionInput.js
 import React, { useState } from "react";
 
-// --- MODIFIED ---
-// We use a relative path.
-const API_URL = ""; 
+// REMOVED: The old API_URL variable is no longer needed.
 
 function QuestionInput({ onSubmit, isLoading }) {
   const [question, setQuestion] = useState("");
@@ -20,14 +18,16 @@ function QuestionInput({ onSubmit, isLoading }) {
     onSubmit(question);
 
     try {
-      // Use the relative path here
-      await fetch(`${API_URL}/api/questions`, {
+      // UPDATED: Use the environment variable to build the full backend URL.
+      // Vercel provides this variable to your React app during the build process.
+      await fetch(`${process.env.REACT_APP_API_URL}/api/questions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
       setQuestion(""); 
     } catch (err) {
+      console.error("Error submitting question:", err); // Log the error for debugging
       alert("Error submitting question!");
     }
   };
