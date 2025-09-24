@@ -16,7 +16,7 @@ function parseGradient(ctx, fill, x, y, r, w, h) {
   if (typeof fill !== "string") return fill;
 
   if (fill.startsWith("radial-gradient")) {
-    const matches = fill.match(/radial-gradient\(([^,]+),\s*([^\)]+)\)/);
+    const matches = fill.match(/radial-gradient\(([^,]+),\s*([^)]+)\)/);
     if (matches) {
       const g = ctx.createRadialGradient(
         x,
@@ -32,7 +32,7 @@ function parseGradient(ctx, fill, x, y, r, w, h) {
     }
   }
   if (fill.startsWith("linear-gradient")) {
-    const matches = fill.match(/linear-gradient\(([^,]+),\s*([^\)]+)\)/);
+    const matches = fill.match(/linear-gradient\(([^,]+),\s*([^)]+)\)/);
     if (matches) {
       const g = ctx.createLinearGradient(x, y, x, y + (h || r * 2));
       g.addColorStop(0, matches[1]);
