@@ -1,0 +1,158 @@
+/* frontend/src/App.css */
+
+.App {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 2rem;
+  gap: 2.5rem;
+  height: 100vh;
+}
+
+/* --- Left Panel: Visualization --- */
+.visualization-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* This is the <canvas> element itself from your component */
+.visualization-panel canvas {
+  background-color: #fff !important; /* Force white background for viz */
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.controls {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.controls button {
+  font-size: 1rem;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: var(--primary-color);
+  color: #000;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.controls button:hover {
+  background-color: var(--primary-variant-color);
+  color: var(--text-color);
+}
+
+.controls button:disabled {
+  background-color: #333;
+  color: #777;
+  cursor: not-allowed;
+}
+
+/* --- Right Panel: Chat --- */
+.chat-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 4rem); /* Full height minus padding */
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.chat-panel h1 {
+  margin-top: 0;
+  color: var(--primary-color);
+  text-align: center;
+}
+
+.answer-display {
+  flex-grow: 1;
+  overflow-y: auto; /* Scroll if content is tall */
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.question-card,
+.answer-card {
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: var(--background-color);
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.question-card strong,
+.answer-card strong {
+  color: var(--primary-color);
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.answer-card.loading {
+  color: var(--text-color-secondary);
+  text-align: center;
+  font-style: italic;
+}
+
+/* --- Input Form (from QuestionInput.js) --- */
+form {
+  display: flex;
+  width: 100%;
+  margin-bottom: 0; /* Remove margin from old component */
+}
+
+form input[type="text"] {
+  flex-grow: 1;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 1px solid var(--border-color);
+  background-color: var(--background-color);
+  color: var(--text-color);
+  border-radius: 6px;
+  margin-right: 0.75rem;
+}
+
+form input[type="text"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--primary-variant-color);
+}
+
+form button[type="submit"] {
+  font-size: 1rem;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: var(--primary-color);
+  color: #000;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+form button[type="submit"]:hover {
+  background-color: var(--primary-variant-color);
+  color: var(--text-color);
+}
+
+form button[type="submit"]:disabled {
+  background-color: #333;
+  color: #777;
+  cursor: not-allowed;
+}
